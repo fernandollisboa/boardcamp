@@ -13,11 +13,16 @@ const categorySchema = joi.object({
 });
 
 const gameSchema = joi.object({
-	name = joi.string().required(),
-	image = joi.string().pattern(/^http:/),
-	stockTotal = joi.number().integer().min(1).required(),
-	categoryId = joi.number().integer().required(),
-	pricePerDay = joi.number().integer().min(1).required()
+	name: joi.string().required(),
+	image: joi.string().pattern(/^http:/),
+	stockTotal: joi.number().integer().min(1).required(),
+	categoryId: joi.number().integer().required(),
+	pricePerDay: joi.number().integer().min(1).required(),
+});
+
+
+const customersSchema = joi.object({
+	
 })
 
 const userSchema = joi.object({
@@ -26,7 +31,10 @@ const userSchema = joi.object({
 	password: joi.string().min(6).required(),
 	passwordConfirmation: joi.ref("password"),
 	birthYear: joi.number().integer().min(1900).max(2013),
-	birthday: joi.string().required().pattern(/^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$/)
+	birthday: joi
+		.string()
+		.required()
+		.pattern(/^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$/),
 });
 
 const connection = new Pool({
@@ -63,7 +71,7 @@ app.post("/categories", async (req, res) => {
 			name,
 		]);
 
-		return res.status(200).send(newCategory);
+		return res.status(200).send(req.body);
 	} catch (error) {
 		console.log(error);
 		return res.sendStatus(500);
@@ -75,7 +83,7 @@ app.get("/games", async (req, res) => {
 		let gamesList;
 
 		if (req.query.name) {
-			gamesList = await connection.query("SELECT * FROM games WHERE name ILIKE $1", [
+			gamesList = await connection.query("SELECT * FROM games WHERE name ILIKE $1;", [
 				`${req.query.name}%`,
 			]);
 		} else {
@@ -90,17 +98,40 @@ app.get("/games", async (req, res) => {
 });
 
 app.post("/games", async (req, res) => {
-	try{
+	try {
 		const validation = gameSchema.validate(req.body);
-		if(validation.error) return res.sendStatus(400);
+		if (validation.error) return res.sendStatus(400);
 
-		const {name,image,stockTotal,categoryId,pricePerDay} = req.body;
+		const { name, image, stockTotal, categoryId, pricePerDay } = req.body;
 
-		const duplicateCheck = connection.query("SELECT * FROM games WHERE name LIKE $1",[name]);
-		if(duplicateCheck.rows !== 0) return res.sendStatus(409);
+		const duplicateCheck = await connection.query("SELECT * FROM games WHERE name ILIKE $1;", [
+			name,
+		]);
+		if (duplicateCheck.rows.length !== 0) return res.sendStatus(409);
 
-		
+		const categoryCheck = await connection.query("SELECT * FROM categories WHERE id = $1;", [
+			categoryId,
+		]);
+		if (categoryCheck.rows.length === 0) return res.sendStatus(400);
+
+		console.log("gabrueru");
+		const newGame = await connection.query(
+			`INSERT INTO games (name,image,"stockTotal","categoryId","pricePerDay") 
+													   VALUES ($1,$2,$3,$4,$5);`,
+			[name, image, stockTotal, categoryId, pricePerDay]
+		);
+
+		console.log("gabrueru");
+		return res.status(200).send(req.body);
+	} catch (err) {
+		return res.sendStatus(500);
 	}
 });
+
+app.get("/customers", (req,res)=>{
+	try{
+		const validation = 
+	}
+})
 
 app.listen(4000);
