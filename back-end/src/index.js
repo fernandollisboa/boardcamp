@@ -232,6 +232,7 @@ app.get("/rentals", async (req, res) => {
 		let rentalsArray = retalsList.rows;
 
 		if (customerId) {
+			console.log("aaa");
 			rentalsArray = rentalsArray.filter((obj) => obj.customerId === Number(customerId));
 		}
 		if (gameId) {
@@ -311,24 +312,28 @@ app.post("/rentals", async (req, res) => {
 app.post("/rentals/:id/return", async (req, res) => {
 	try {
 		const { id } = req.params;
-		const dbResponse = await connection.query("SELECT * FROM rentals WHERE id = $1", [id]);
+		const checkIdExists = await connection.query("SELECT * FROM rentals WHERE id = $1", [id]);
 
-		if (dbResponse.rows.length === 0) return res.sendStatus(400);
-		if (dbResponse.rows[1].returnDate !== null) return sendStatus(400);
+		if (checkIdExists.rows.length === 0) return res.sendStatus(400);
 
-		const rentalObject = dbResponse.rows[1];
+		if (checkIdExists.rows[0].returnDate !== null) return sendStatus(400);
+
+		const rentalObject = checkIdExists.rows[0];
 
 		const returnDate = dayjs();
 		const rentDateObject = dayjs(rentalObject.rentDate, "YYYY-MM-DD");
+
 		const delayFee =
 			Math.floor((returnDate - rentDateObject) / (60 * 60 * 24 * 1000)) *
-			(rentalObject.originalPrice / rentDateObject.daysRented);
+			(rentalObject.originalPrice / rentalObject.daysRented);
+
+		console.log(rentDateObject);
 
 		await connection.query(
 			`UPDATE 
                 rentals
              SET
-                "delayFee" = $1
+                "delayFee" = $1,
                 "returnDate" = $2
              WHERE
                 id = $3`,
@@ -337,7 +342,6 @@ app.post("/rentals/:id/return", async (req, res) => {
 
 		return res.sendStatus(200);
 	} catch (err) {
-		console.log(err);
 		return res.sendStatus(500);
 	}
 });
